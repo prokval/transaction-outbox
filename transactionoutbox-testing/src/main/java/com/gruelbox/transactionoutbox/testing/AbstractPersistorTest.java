@@ -422,6 +422,9 @@ public abstract class AbstractPersistorTest {
 
         TransactionOutboxEntry entry41 = createEntry("FOO41", now, true, "GROUP4", true);
 
+        TransactionOutboxEntry entry51 = createEntry("FOO51", now, true, "GROUP5", false);
+        TransactionOutboxEntry entry52 = createEntry("FOO52", now, false, "GROUP5", false);
+
         txManager().inTransactionThrows(tx -> {
             // Order of save matters
             persistor().save(tx, entry11);
@@ -437,6 +440,9 @@ public abstract class AbstractPersistorTest {
 
             persistor().save(tx, entry23);
             persistor().save(tx, entry33);
+
+            persistor().save(tx, entry51);
+            persistor().save(tx, entry52);
         });
 
         txManager().inTransactionThrows(tx -> persistor().deleteOutdatedInAllTopics(tx));
@@ -445,7 +451,7 @@ public abstract class AbstractPersistorTest {
                 .inTransactionThrows(
                         tx ->
                                 assertThat(persistor().selectNextInTopics(tx, 100, now.plusMillis(1)), containsInAnyOrder(
-                                        entry11, entry23, entry33, entry41)));
+                                        entry11, entry23, entry33, entry51)));
 
 
     }

@@ -397,7 +397,7 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
   private void updateAttemptCount(TransactionOutboxEntry entry, Throwable cause) {
     try {
       entry.setAttempts(entry.getAttempts() + 1);
-      var blocked = (entry.getTopic() == null) && (entry.getAttempts() >= blockAfterAttempts);
+      var blocked = (entry.getTopic() == null || entry.isOrderedTakeLast()) && (entry.getAttempts() >= blockAfterAttempts);
       entry.setBlocked(blocked);
       transactionManager.inTransactionThrows(tx -> pushBack(tx, entry));
       listener.failure(entry, cause);

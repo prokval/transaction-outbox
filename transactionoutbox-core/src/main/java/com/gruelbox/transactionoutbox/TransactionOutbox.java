@@ -369,6 +369,28 @@ public interface TransactionOutbox {
      */
     ParameterizedScheduleBuilder ordered(String topic);
 
+    /**
+     * Makes sense only when {@code ordered(..)} is specified.
+     *
+     * <p>For some cases, such as update status of some entity, when we need to know only the final
+     * state, it is acceptable to skip intermediate requests and deliver only the latest one.
+     *
+     * <p>Setting {@code orderedTakeLast(true)} will change the default behaviour in the following
+     * points:
+     *
+     * <ul>
+     *   <li>{@link TransactionOutboxBuilder#blockAfterAttempts} is now not ignored. The request
+     *       will be marked as blocked if it fails after certain number of attempts
+     *   <li>If there is newer request came to the same topic were we have blocked request, then
+     *       blocked one will be removed, and the newer one will start processing
+     *   <li>If there are multiple requests for the same topic came in the period between {@link
+     *       TransactionOutbox#flush()} calls, then only the latest request will be processed by the
+     *       {@link TransactionOutbox#flush()}
+     * </ul>
+     *
+     * @param takeLast boolean flag
+     * @return Builder.
+     */
     ParameterizedScheduleBuilder orderedTakeLast(boolean takeLast);
 
     /**

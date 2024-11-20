@@ -44,7 +44,7 @@ public interface Dialect {
           .fetchNextInAllTopics(
               "WITH raw AS(SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = false AND topic <> '*')"
-                  + " SELECT * FROM raw WHERE rn = 1 AND nextAttemptTime < ? LIMIT {{batchSize}}")
+                  + " SELECT * FROM raw WHERE rn = 1 AND (blocked = false OR orderedTakeLast = false) AND nextAttemptTime < ? LIMIT {{batchSize}}")
           .deleteOutdatedInAllTopics(
               "WITH raw AS(SELECT id, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq DESC)) as rn"
                   + " FROM {{table}} WHERE orderedTakeLast = true AND topic <> '*')"
@@ -65,7 +65,7 @@ public interface Dialect {
           .fetchNextInAllTopics(
               "WITH raw AS(SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = false AND topic <> '*')"
-                  + " SELECT * FROM raw WHERE rn = 1 AND nextAttemptTime < ? LIMIT {{batchSize}}")
+                  + " SELECT * FROM raw WHERE rn = 1 AND (blocked = false OR orderedTakeLast = false) AND nextAttemptTime < ? LIMIT {{batchSize}}")
           .deleteOutdatedInAllTopics(
               "WITH raw AS(SELECT id, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq DESC)) as rn"
                   + " FROM {{table}} WHERE orderedTakeLast = true AND topic <> '*')"
@@ -98,7 +98,7 @@ public interface Dialect {
           .fetchNextInAllTopics(
               "WITH cte1 AS (SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = 0 AND topic <> '*')"
-                  + " SELECT * FROM cte1 WHERE rn = 1 AND nextAttemptTime < ? AND ROWNUM <= {{batchSize}}")
+                  + " SELECT * FROM cte1 WHERE rn = 1 AND (blocked = 0 OR orderedTakeLast = 0) AND nextAttemptTime < ? AND ROWNUM <= {{batchSize}}")
           .deleteOutdatedInAllTopics(
               "DELETE FROM {{table}} WHERE id IN (SELECT v.id FROM ("
                   + "SELECT a.id FROM {{table}} a WHERE a.topic <> '*' AND a.orderedTakeLast = 1 AND a.seq IS NOT NULL"
@@ -177,7 +177,7 @@ public interface Dialect {
                   + ")) v)")
           .fetchNextInAllTopics(
               "SELECT TOP {{batchSize}} {{allFields}} FROM {{table}} a"
-                  + " WHERE processed = 0 AND topic <> '*' AND nextAttemptTime < ?"
+                  + " WHERE processed = 0 AND topic <> '*' AND (blocked = 0 OR orderedTakeLast = 0) AND nextAttemptTime < ?"
                   + " AND seq = ("
                   + "SELECT MIN(seq) FROM {{table}} b WHERE b.topic=a.topic AND b.processed = 0"
                   + ")")

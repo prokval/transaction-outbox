@@ -81,7 +81,7 @@ class DefaultDialect implements Dialect {
             + ")) v)";
     private String fetchNextInAllTopics =
         "SELECT {{allFields}} FROM {{table}} a"
-            + " WHERE processed = false AND topic <> '*' AND nextAttemptTime < ?"
+            + " WHERE processed = false AND topic <> '*' AND (blocked = false OR orderedTakeLast = false) AND nextAttemptTime < ?"
             + " AND seq = ("
             + "SELECT MIN(seq) FROM {{table}} b WHERE b.topic=a.topic AND b.processed = false"
             + ") LIMIT {{batchSize}}";

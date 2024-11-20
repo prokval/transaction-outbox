@@ -7,7 +7,7 @@ public final class PgSeqDialect {
           .fetchNextInAllTopics(
               "WITH raw AS(SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = false AND topic <> '*')"
-                  + " SELECT * FROM raw WHERE rn = 1 AND nextAttemptTime < ? LIMIT {{batchSize}}")
+                  + " SELECT * FROM raw WHERE rn = 1 AND (blocked = false OR orderedTakeLast = false) AND nextAttemptTime < ? LIMIT {{batchSize}}")
           .deleteOutdatedInAllTopics(
               "WITH raw AS(SELECT id, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq DESC)) as rn"
                   + " FROM {{table}} WHERE orderedTakeLast = true AND topic <> '*')"
