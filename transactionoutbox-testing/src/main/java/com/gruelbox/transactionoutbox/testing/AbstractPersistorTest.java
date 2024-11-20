@@ -9,7 +9,11 @@ import com.gruelbox.transactionoutbox.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -50,7 +54,17 @@ public abstract class AbstractPersistorTest {
     Thread.sleep(1100);
     txManager()
         .inTransactionThrows(
-            tx -> assertThat(persistor().selectBatch(tx, 100, now.plusMillis(1)), contains(entry)));
+            tx -> assertThat(setSequenceToNull(persistor().selectBatch(tx, 100, now.plusMillis(1))), contains(entry)));
+  }
+
+  /**
+   * For PgSeqDialect.POSTGRESQL_SEQ dialect sequence is filled by Database automatically.
+   * To meet our expectations, we might need to set it to null when read records from the DB
+   */
+  private List<TransactionOutboxEntry> setSequenceToNull(Collection<TransactionOutboxEntry> records) {
+      return records.stream()
+              .map(i -> i.toBuilder().sequence(null).build())
+              .collect(Collectors.toList());
   }
 
   @Test
@@ -72,7 +86,7 @@ public abstract class AbstractPersistorTest {
     txManager()
         .inTransactionThrows(
             tx ->
-                assertThat(persistor().selectBatch(tx, 100, now.plusMillis(1)), contains(entry1)));
+                assertThat(setSequenceToNull(persistor().selectBatch(tx, 100, now.plusMillis(1))), contains(entry1)));
 
     TransactionOutboxEntry entry2 = createEntry("FOO2", now, false, "context-clientkey2");
     txManager().inTransactionThrows(tx -> persistor().save(tx, entry2));
@@ -81,7 +95,7 @@ public abstract class AbstractPersistorTest {
         .inTransactionThrows(
             tx ->
                 assertThat(
-                    persistor().selectBatch(tx, 100, now.plusMillis(1)),
+                    setSequenceToNull(persistor().selectBatch(tx, 100, now.plusMillis(1))),
                     containsInAnyOrder(entry1, entry2)));
 
     TransactionOutboxEntry entry3 = createEntry("FOO3", now, false, "context-clientkey1");
@@ -92,7 +106,7 @@ public abstract class AbstractPersistorTest {
         .inTransactionThrows(
             tx ->
                 assertThat(
-                    persistor().selectBatch(tx, 100, now.plusMillis(1)),
+                    setSequenceToNull(persistor().selectBatch(tx, 100, now.plusMillis(1))),
                     containsInAnyOrder(entry1, entry2)));
   }
 
@@ -392,13 +406,69 @@ public abstract class AbstractPersistorTest {
     }
   }
 
-  private TransactionOutboxEntry createEntry(String id, Instant nextAttemptTime, boolean blocked) {
+    @Test
+    void testOrderedSelect() throws Exception {
+        TransactionOutboxEntry entry11 = createEntry("FOO11", now, false, "GROUP1", false);
+        TransactionOutboxEntry entry12 = createEntry("FOO12", now, false, "GROUP1", false);
+        TransactionOutboxEntry entry13 = createEntry("FOO13", now, false, "GROUP1", false);
+
+        TransactionOutboxEntry entry21 = createEntry("FOO21", now, true, "GROUP2", true);
+        TransactionOutboxEntry entry22 = createEntry("FOO22", now, false, "GROUP2", true);
+        TransactionOutboxEntry entry23 = createEntry("FOO23", now, false, "GROUP2", true);
+
+        TransactionOutboxEntry entry31 = createEntry("FOO31", now, false, "GROUP3", true);
+        TransactionOutboxEntry entry32 = createEntry("FOO32", now, false, "GROUP3", true);
+        TransactionOutboxEntry entry33 = createEntry("FOO33", now, false, "GROUP3", true);
+
+        TransactionOutboxEntry entry41 = createEntry("FOO41", now, true, "GROUP4", true);
+
+        txManager().inTransactionThrows(tx -> {
+            // Order of save matters
+            persistor().save(tx, entry11);
+            persistor().save(tx, entry12);
+            persistor().save(tx, entry13);
+
+            persistor().save(tx, entry21);
+            persistor().save(tx, entry31);
+            persistor().save(tx, entry41);
+
+            persistor().save(tx, entry22);
+            persistor().save(tx, entry32);
+
+            persistor().save(tx, entry23);
+            persistor().save(tx, entry33);
+        });
+
+        txManager().inTransactionThrows(tx -> persistor().deleteOutdatedInAllTopics(tx));
+
+        txManager()
+                .inTransactionThrows(
+                        tx ->
+                                assertThat(persistor().selectNextInTopics(tx, 100, now.plusMillis(1)), containsInAnyOrder(
+                                        entry11, entry23, entry33, entry41)));
+
+
+    }
+
+    private TransactionOutboxEntry createEntry(String id, Instant nextAttemptTime, boolean blocked) {
     return TransactionOutboxEntry.builder()
         .id(id)
         .invocation(createInvocation())
         .blocked(blocked)
         .lastAttemptTime(null)
         .nextAttemptTime(nextAttemptTime.truncatedTo(MILLIS))
+        .build();
+  }
+
+  private TransactionOutboxEntry createEntry(String id, Instant nextAttemptTime, boolean blocked, String topic, boolean orderedTakeLast) {
+    return TransactionOutboxEntry.builder()
+        .id(id)
+        .invocation(createInvocation())
+        .blocked(blocked)
+        .lastAttemptTime(null)
+        .nextAttemptTime(nextAttemptTime.truncatedTo(MILLIS))
+        .topic(topic)
+        .orderedTakeLast(orderedTakeLast)
         .build();
   }
 

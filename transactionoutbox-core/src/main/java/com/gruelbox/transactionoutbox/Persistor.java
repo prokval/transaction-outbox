@@ -138,6 +138,12 @@ public interface Persistor {
   boolean checkConnection(Transaction tx) throws Exception;
 
   /**
+   * Deletes outdated records, regardless processed or not, for those topics where last invocation
+   * only matters (orderedTakeLast is set to true)
+   */
+  int deleteOutdatedInAllTopics(Transaction tx) throws Exception;
+
+  /**
    * Clears the database. For testing only.
    *
    * @param tx The current {@link Transaction}.

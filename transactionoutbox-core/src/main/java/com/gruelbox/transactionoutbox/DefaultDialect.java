@@ -27,6 +27,7 @@ class DefaultDialect implements Dialect {
   @Getter private final String selectBatch;
   @Getter private final String lock;
   @Getter private final String checkSql;
+  @Getter private final String deleteOutdatedInAllTopics;
   @Getter private final String fetchNextInAllTopics;
   @Getter private final String fetchCurrentVersion;
   @Getter private final String fetchNextSequence;
@@ -72,6 +73,12 @@ class DefaultDialect implements Dialect {
     private Map<Integer, Migration> migrations;
     private Function<Boolean, String> booleanValueFrom;
     private SQLAction createVersionTableBy;
+    private String deleteOutdatedInAllTopics =
+        "DELETE FROM {{table}} WHERE id IN (SELECT v.id FROM ("
+            + "SELECT a.id FROM {{table}} a WHERE a.topic <> '*' AND a.orderedTakeLast = true AND a.seq IS NOT NULL"
+            + " AND a.seq <> ("
+            + "SELECT MAX(b.seq) FROM {{table}} b WHERE b.topic=a.topic AND b.orderedTakeLast = true AND b.seq IS NOT NULL"
+            + ")) v)";
     private String fetchNextInAllTopics =
         "SELECT {{allFields}} FROM {{table}} a"
             + " WHERE processed = false AND topic <> '*' AND nextAttemptTime < ?"
@@ -158,6 +165,12 @@ class DefaultDialect implements Dialect {
               12,
               "Add flush index to support ordering",
               "CREATE INDEX IX_TXNO_OUTBOX_2 ON TXNO_OUTBOX (topic, processed, seq)"));
+      migrations.put(
+          13,
+          new Migration(
+              13,
+              "Add orderedTakeLast column",
+              "ALTER TABLE TXNO_OUTBOX ADD COLUMN orderedTakeLast BOOLEAN NOT NULL DEFAULT false"));
     }
 
     Builder setMigration(Migration migration) {
@@ -181,6 +194,7 @@ class DefaultDialect implements Dialect {
           selectBatch,
           lock,
           checkSql,
+          deleteOutdatedInAllTopics,
           fetchNextInAllTopics,
           fetchCurrentVersion,
           fetchNextSequence,

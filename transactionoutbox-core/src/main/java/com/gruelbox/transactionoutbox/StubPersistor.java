@@ -58,6 +58,11 @@ public class StubPersistor implements Persistor {
   }
 
   @Override
+  public int deleteOutdatedInAllTopics(Transaction tx) throws Exception {
+    return 0;
+  }
+
+  @Override
   public void clear(Transaction tx) {}
 
   @Override

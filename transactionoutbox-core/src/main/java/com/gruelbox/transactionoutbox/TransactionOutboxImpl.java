@@ -1,13 +1,12 @@
 package com.gruelbox.transactionoutbox;
 
+import static com.gruelbox.transactionoutbox.spi.Utils.logAtLevel;
+import static com.gruelbox.transactionoutbox.spi.Utils.uncheckedly;
+import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.time.temporal.ChronoUnit.MINUTES;
+
 import com.gruelbox.transactionoutbox.spi.ProxyFactory;
 import com.gruelbox.transactionoutbox.spi.Utils;
-import lombok.*;
-import lombok.experimental.Accessors;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
-import org.slf4j.event.Level;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Clock;
@@ -21,11 +20,11 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static com.gruelbox.transactionoutbox.spi.Utils.logAtLevel;
-import static com.gruelbox.transactionoutbox.spi.Utils.uncheckedly;
-import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.time.temporal.ChronoUnit.MINUTES;
+import lombok.*;
+import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.slf4j.event.Level;
 
 @Slf4j
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -82,7 +81,7 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
 
   @Override
   public <T> T schedule(Class<T> clazz) {
-    return schedule(clazz, null, null, null);
+    return schedule(clazz, null, null, false, null);
   }
 
   @Override
@@ -137,6 +136,9 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
     futures.add(
         CompletableFuture.supplyAsync(
             () -> {
+              log.debug("Deleting outdated invocations in all topics");
+              transactionManager.inTransaction(
+                  tx -> uncheckedly(() -> persistor.deleteOutdatedInAllTopics(tx)));
               log.debug("Flushing topics");
               return doFlush(
                   tx -> uncheckedly(() -> persistor.selectNextInTopics(tx, flushBatchSize, now)));
@@ -219,60 +221,72 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
   }
 
   private <T> T schedule(
-      Class<T> clazz, String uniqueRequestId, String topic, Duration delayForAtLeast) {
+      Class<T> clazz,
+      String uniqueRequestId,
+      String topic,
+      boolean orderedTakeLast,
+      Duration delayForAtLeast) {
     if (!initialized.get()) {
       throw new IllegalStateException("Not initialized");
     }
     return proxyFactory.createProxy(
         clazz,
-        (method, args) ->  persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, topic, delayForAtLeast));
+        (method, args) ->
+            persistInvocationAndAddPostCommitHook(
+                method, args, uniqueRequestId, topic, orderedTakeLast, delayForAtLeast));
   }
 
-  private  <T> T persistInvocationAndAddPostCommitHook(Method method, Object[] args, String uniqueRequestId, String topic, Duration delayForAtLeast) {
+  private <T> T persistInvocationAndAddPostCommitHook(
+      Method method,
+      Object[] args,
+      String uniqueRequestId,
+      String topic,
+      boolean orderedTakeLast,
+      Duration delayForAtLeast) {
     return uncheckedly(() -> {
           var extracted = transactionManager.extractTransaction(method, args);
           TransactionOutboxEntry entry =
-                  newEntry(
-                          extracted.getClazz(),
-                          extracted.getMethodName(),
-                          extracted.getParameters(),
-                          extracted.getArgs(),
-                          uniqueRequestId,
-                          topic);
+              newEntry(
+                  extracted.getClazz(),
+                  extracted.getMethodName(),
+                  extracted.getParameters(),
+                  extracted.getArgs(),
+                  uniqueRequestId,
+                  topic,
+                  orderedTakeLast);
           if (delayForAtLeast != null) {
             entry.setNextAttemptTime(entry.getNextAttemptTime().plus(delayForAtLeast));
           }
           validator.validate(entry);
           persistor.save(extracted.getTransaction(), entry);
           extracted
-                  .getTransaction()
-                  .addPostCommitHook(
-                          () -> {
-                            listener.scheduled(entry);
-                            if (entry.getTopic() != null) {
-                              log.debug("Queued {} in topic {}", entry.description(), topic);
-                            } else if (delayForAtLeast == null) {
-                              submitNow(entry);
-                              log.debug(
-                                      "Scheduled {} for post-commit execution", entry.description());
-                            } else if (delayForAtLeast.compareTo(attemptFrequency) < 0) {
-                              scheduler.schedule(
-                                      () -> submitNow(entry),
-                                      delayForAtLeast.toMillis(),
-                                      TimeUnit.MILLISECONDS);
-                              log.info(
-                                      "Scheduled {} for post-commit execution after at least {}",
-                                      entry.description(),
-                                      delayForAtLeast);
-                            } else {
-                              log.info(
-                                      "Queued {} for execution after at least {}",
-                                      entry.description(),
-                                      delayForAtLeast);
-                            }
-                          });
+              .getTransaction()
+              .addPostCommitHook(
+                  () -> {
+                    listener.scheduled(entry);
+                    if (entry.getTopic() != null) {
+                      log.debug("Queued {} in topic {}", entry.description(), topic);
+                    } else if (delayForAtLeast == null) {
+                      submitNow(entry);
+                      log.debug("Scheduled {} for post-commit execution", entry.description());
+                    } else if (delayForAtLeast.compareTo(attemptFrequency) < 0) {
+                      scheduler.schedule(
+                          () -> submitNow(entry),
+                          delayForAtLeast.toMillis(),
+                          TimeUnit.MILLISECONDS);
+                      log.info(
+                          "Scheduled {} for post-commit execution after at least {}",
+                          entry.description(),
+                          delayForAtLeast);
+                    } else {
+                      log.info(
+                          "Queued {} for execution after at least {}",
+                          entry.description(),
+                          delayForAtLeast);
+                    }
+                  });
           return null;
-    });
+        });
   }
 
   private void submitNow(TransactionOutboxEntry entry) {
@@ -343,7 +357,8 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
       Class<?>[] params,
       Object[] args,
       String uniqueRequestId,
-      String topic) {
+      String topic,
+      boolean orderedTakeLast) {
     return TransactionOutboxEntry.builder()
         .id(UUID.randomUUID().toString())
         .invocation(
@@ -357,6 +372,7 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
         .nextAttemptTime(clockProvider.get().instant())
         .uniqueRequestId(uniqueRequestId)
         .topic(topic)
+        .orderedTakeLast(orderedTakeLast)
         .build();
   }
 
@@ -448,23 +464,33 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
 
     private String uniqueRequestId;
     private String ordered;
+    private boolean orderedTakeLast = false;
     private Duration delayForAtLeast;
 
-    @Override
-    public <T> T schedule(Class<T> clazz) {
+    private void validate() {
       if (uniqueRequestId != null && uniqueRequestId.length() > 250) {
         throw new IllegalArgumentException("uniqueRequestId may be up to 250 characters");
       }
-      return TransactionOutboxImpl.this.schedule(clazz, uniqueRequestId, ordered, delayForAtLeast);
+      if (ordered != null && ordered.length() > 250) {
+        throw new IllegalArgumentException("ordered may be up to 250 characters");
+      }
+    }
+
+    @Override
+    public <T> T schedule(Class<T> clazz) {
+      validate();
+      return TransactionOutboxImpl.this.schedule(clazz, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
     }
 
     @Override
     public void persistInvocationAndAddPostCommitHook(Method method, Object[] args, boolean requireTransaction) {
+      validate();
+
       if (requireTransaction || !(transactionManager instanceof ThreadLocalContextTransactionManager)) {
-        TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, delayForAtLeast);
+        TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
       } else {
         ((ThreadLocalContextTransactionManager) transactionManager).inCurrentOrNewTransaction(t ->
-                TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, delayForAtLeast));
+                    TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast));
       }
     }
   }

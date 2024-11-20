@@ -38,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 public class DefaultPersistor implements Persistor, Validatable {
 
   private static final String ALL_FIELDS =
-      "id, uniqueRequestId, invocation, topic, seq, lastAttemptTime, nextAttemptTime, attempts, blocked, processed, version";
+      "id, uniqueRequestId, invocation, topic, seq, lastAttemptTime, nextAttemptTime, attempts, blocked, processed, version, orderedTakeLast";
 
   /**
    * @param writeLockTimeoutSeconds How many seconds to wait before timing out on obtaining a write
@@ -115,7 +115,7 @@ public class DefaultPersistor implements Persistor, Validatable {
             + tableName
             + " ("
             + ALL_FIELDS
-            + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     var writer = new StringWriter();
     serializer.serializeInvocation(entry.getInvocation(), writer);
     if (entry.getTopic() != null) {
@@ -185,22 +185,25 @@ public class DefaultPersistor implements Persistor, Validatable {
   private void setupInsert(
       TransactionOutboxEntry entry, StringWriter writer, PreparedStatement stmt)
       throws SQLException {
-    stmt.setString(1, entry.getId());
-    stmt.setString(2, entry.getUniqueRequestId());
-    stmt.setString(3, writer.toString());
-    stmt.setString(4, entry.getTopic() == null ? "*" : entry.getTopic());
+    int pos = 1;
+    stmt.setString(pos++, entry.getId());
+    stmt.setString(pos++, entry.getUniqueRequestId());
+    stmt.setString(pos++, writer.toString());
+    stmt.setString(pos++, entry.getTopic() == null ? "*" : entry.getTopic());
     if (entry.getSequence() == null) {
-      stmt.setObject(5, null);
+      stmt.setObject(pos++, null);
     } else {
-      stmt.setLong(5, entry.getSequence());
+      stmt.setLong(pos++, entry.getSequence());
     }
     stmt.setTimestamp(
-        6, entry.getLastAttemptTime() == null ? null : Timestamp.from(entry.getLastAttemptTime()));
-    stmt.setTimestamp(7, Timestamp.from(entry.getNextAttemptTime()));
-    stmt.setInt(8, entry.getAttempts());
-    stmt.setBoolean(9, entry.isBlocked());
-    stmt.setBoolean(10, entry.isProcessed());
-    stmt.setInt(11, entry.getVersion());
+        pos++,
+        entry.getLastAttemptTime() == null ? null : Timestamp.from(entry.getLastAttemptTime()));
+    stmt.setTimestamp(pos++, Timestamp.from(entry.getNextAttemptTime()));
+    stmt.setInt(pos++, entry.getAttempts());
+    stmt.setBoolean(pos++, entry.isBlocked());
+    stmt.setBoolean(pos++, entry.isProcessed());
+    stmt.setInt(pos++, entry.getVersion());
+    stmt.setBoolean(pos++, entry.isOrderedTakeLast());
   }
 
   @Override
@@ -355,6 +358,17 @@ public class DefaultPersistor implements Persistor, Validatable {
     }
   }
 
+  @Override
+  public int deleteOutdatedInAllTopics(Transaction tx) throws Exception {
+    //noinspection resource
+    try (PreparedStatement stmt =
+        tx.connection()
+            .prepareStatement(
+                dialect.getDeleteOutdatedInAllTopics().replace("{{table}}", tableName))) {
+      return stmt.executeUpdate();
+    }
+  }
+
   private void gatherResults(PreparedStatement stmt, Collection<TransactionOutboxEntry> output)
       throws SQLException, IOException {
     try (ResultSet rs = stmt.executeQuery()) {
@@ -392,6 +406,7 @@ public class DefaultPersistor implements Persistor, Validatable {
               .blocked(rs.getBoolean("blocked"))
               .processed(rs.getBoolean("processed"))
               .version(rs.getInt("version"))
+              .orderedTakeLast(rs.getBoolean("orderedTakeLast"))
               .build();
       log.debug("Found {}", entry);
       return entry;

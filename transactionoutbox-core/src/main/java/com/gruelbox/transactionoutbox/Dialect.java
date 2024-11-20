@@ -20,6 +20,12 @@ public interface Dialect {
 
   String getCheckSql();
 
+  /**
+   * @return Format string for the SQL required to delete outdated records, regardless processed or
+   *     not, for those topics where last invocation only matters (orderedTakeLast is set to true)
+   */
+  String getDeleteOutdatedInAllTopics();
+
   String getFetchNextInAllTopics();
 
   String getFetchCurrentVersion();
@@ -39,6 +45,10 @@ public interface Dialect {
               "WITH raw AS(SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = false AND topic <> '*')"
                   + " SELECT * FROM raw WHERE rn = 1 AND nextAttemptTime < ? LIMIT {{batchSize}}")
+          .deleteOutdatedInAllTopics(
+              "WITH raw AS(SELECT id, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq DESC)) as rn"
+                  + " FROM {{table}} WHERE orderedTakeLast = true AND topic <> '*')"
+                  + " DELETE FROM {{table}} WHERE id IN (SELECT raw.id FROM raw WHERE rn > 1)")
           .deleteExpired(
               "DELETE FROM {{table}} WHERE nextAttemptTime < ? AND processed = true AND blocked = false"
                   + " LIMIT {{batchSize}}")
@@ -56,6 +66,10 @@ public interface Dialect {
               "WITH raw AS(SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = false AND topic <> '*')"
                   + " SELECT * FROM raw WHERE rn = 1 AND nextAttemptTime < ? LIMIT {{batchSize}}")
+          .deleteOutdatedInAllTopics(
+              "WITH raw AS(SELECT id, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq DESC)) as rn"
+                  + " FROM {{table}} WHERE orderedTakeLast = true AND topic <> '*')"
+                  + " DELETE FROM {{table}} WHERE id IN (SELECT raw.id FROM raw WHERE rn > 1)")
           .deleteExpired(
               "DELETE FROM {{table}} WHERE id IN "
                   + "(SELECT id FROM {{table}} WHERE nextAttemptTime < ? AND processed = true AND blocked = false LIMIT {{batchSize}})")
@@ -85,6 +99,12 @@ public interface Dialect {
               "WITH cte1 AS (SELECT {{allFields}}, (ROW_NUMBER() OVER(PARTITION BY topic ORDER BY seq)) as rn"
                   + " FROM {{table}} WHERE processed = 0 AND topic <> '*')"
                   + " SELECT * FROM cte1 WHERE rn = 1 AND nextAttemptTime < ? AND ROWNUM <= {{batchSize}}")
+          .deleteOutdatedInAllTopics(
+              "DELETE FROM {{table}} WHERE id IN (SELECT v.id FROM ("
+                  + "SELECT a.id FROM {{table}} a WHERE a.topic <> '*' AND a.orderedTakeLast = 1 AND a.seq IS NOT NULL"
+                  + " AND a.seq <> ("
+                  + "SELECT MAX(b.seq) FROM {{table}} b WHERE b.topic=a.topic AND b.orderedTakeLast = 1 AND b.seq IS NOT NULL"
+                  + ")) v)")
           .deleteExpired(
               "DELETE FROM {{table}} WHERE nextAttemptTime < ? AND processed = 1 AND blocked = 0 "
                   + "AND ROWNUM <= {{batchSize}}")
@@ -118,6 +138,8 @@ public interface Dialect {
           .changeMigration(
               11,
               "CREATE TABLE TXNO_SEQUENCE (topic VARCHAR(250) NOT NULL, seq NUMBER NOT NULL, CONSTRAINT PK_TXNO_SEQUENCE PRIMARY KEY (topic, seq))")
+          .changeMigration(
+              13, "ALTER TABLE TXNO_OUTBOX ADD orderedTakeLast NUMBER(1) DEFAULT 0 NOT NULL")
           .booleanValueFrom(v -> v ? "1" : "0")
           .createVersionTableBy(
               connection -> {
@@ -147,6 +169,12 @@ public interface Dialect {
               "DELETE  TOP ({{batchSize}}) FROM {{table}} "
                   + "WHERE nextAttemptTime < ? AND processed = 1 AND blocked = 0")
           .fetchCurrentVersion("SELECT version FROM TXNO_VERSION WITH (UPDLOCK, ROWLOCK, READPAST)")
+          .deleteOutdatedInAllTopics(
+              "DELETE FROM {{table}} WHERE id IN (SELECT v.id FROM ("
+                  + "SELECT a.id FROM {{table}} a WHERE a.topic <> '*' AND a.orderedTakeLast = 1 AND a.seq IS NOT NULL"
+                  + " AND a.seq <> ("
+                  + "SELECT MAX(b.seq) FROM {{table}} b WHERE b.topic=a.topic AND b.orderedTakeLast = 1 AND b.seq IS NOT NULL"
+                  + ")) v)")
           .fetchNextInAllTopics(
               "SELECT TOP {{batchSize}} {{allFields}} FROM {{table}} a"
                   + " WHERE processed = 0 AND topic <> '*' AND nextAttemptTime < ?"
@@ -169,6 +197,7 @@ public interface Dialect {
                   + "    processed BIT,\n"
                   + "    lastAttemptTime DATETIME2(6),\n"
                   + "    topic VARCHAR(250) DEFAULT '*' NOT NULL,\n"
+                  + "    orderedTakeLast BIT DEFAULT 0 NOT NULL,\n"
                   + "    seq INT\n"
                   + ")")
           .disableMigration(2)
@@ -200,5 +229,6 @@ public interface Dialect {
                           + "END");
                 }
               })
+          .disableMigration(13)
           .build();
 }

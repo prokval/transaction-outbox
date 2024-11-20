@@ -369,6 +369,8 @@ public interface TransactionOutbox {
      */
     ParameterizedScheduleBuilder ordered(String topic);
 
+    ParameterizedScheduleBuilder orderedTakeLast(boolean takeLast);
+
     /**
      * Instructs the scheduler to delay processing the task until after the specified duration. This
      * can be used for simple job scheduling or to introduce an asynchronous delay into chains of

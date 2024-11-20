@@ -436,10 +436,10 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
               return work.doWork(transaction);
             }
 
-              @Override
-              public <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier) {
-                  return supplier.doWork(transaction);
-              }
+            @Override
+            public <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier) {
+              return supplier.doWork(transaction);
+            }
           };
 
       TransactionOutbox outbox =

@@ -39,6 +39,9 @@ public class TransactionOutboxEntry implements Validatable {
   @Getter
   private final String topic;
 
+  @Getter
+  private final boolean orderedTakeLast;
+
   /**
    * @param sequence The ordered sequence within the {@code topic}.
    */
