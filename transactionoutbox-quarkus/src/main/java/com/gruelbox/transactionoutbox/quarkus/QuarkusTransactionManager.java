@@ -1,7 +1,5 @@
 package com.gruelbox.transactionoutbox.quarkus;
 
-import static com.gruelbox.transactionoutbox.spi.Utils.uncheck;
-
 import com.gruelbox.transactionoutbox.*;
 import com.gruelbox.transactionoutbox.spi.Utils;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,13 +9,16 @@ import jakarta.transaction.Synchronization;
 import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
+
+import javax.sql.DataSource;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import javax.sql.DataSource;
+
+import static com.gruelbox.transactionoutbox.spi.Utils.uncheck;
 
 /** Transaction manager which uses cdi and quarkus. */
 @ApplicationScoped
@@ -52,6 +53,12 @@ public class QuarkusTransactionManager implements ThreadLocalContextTransactionM
   public <T, E extends Exception> T inTransactionReturnsThrows(
       ThrowingTransactionalSupplier<T, E> work) throws E {
     return work.doWork(transactionInstance);
+  }
+
+  @Override
+  @Transactional(value = TxType.REQUIRED)
+  public <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier) {
+    return supplier.doWork(transactionInstance);
   }
 
   @Override

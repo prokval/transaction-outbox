@@ -1,15 +1,13 @@
 package com.gruelbox.transactionoutbox.testing;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.empty;
-import static org.junit.jupiter.api.Assertions.*;
-
 import com.gruelbox.transactionoutbox.*;
 import com.zaxxer.hikari.HikariDataSource;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -22,11 +20,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
+import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
 public abstract class AbstractAcceptanceTest extends BaseTest {
@@ -233,11 +234,11 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
                         (InterfaceProcessor)
                             (foo, bar) -> LOGGER.info("Processing ({}, {})", foo, bar)))
             .submitter(Submitter.withDefaultExecutor())
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .initializeImmediately(false)
             .build();
 
-    Persistor.forDialect(connectionDetails().dialect()).migrate(txManager());
+    persistor().migrate(txManager());
     clearOutbox();
 
     Assertions.assertThrows(
@@ -266,7 +267,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
                   }
                 })
             .submitter(Submitter.withExecutor(Runnable::run))
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .retentionThreshold(Duration.ofDays(2))
             .clockProvider(clockProvider::get)
             .build();
@@ -363,7 +364,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
       TransactionOutbox outbox =
           TransactionOutbox.builder()
               .transactionManager(transactionManager)
-              .persistor(Persistor.forDialect(connectionDetails().dialect()))
+              .persistor(persistor())
               .listener(new LatchListener(latch))
               .build();
 
@@ -434,13 +435,18 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
                 ThrowingTransactionalSupplier<T, E> work) throws E, NoTransactionActiveException {
               return work.doWork(transaction);
             }
+
+              @Override
+              public <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier) {
+                  return supplier.doWork(transaction);
+              }
           };
 
       TransactionOutbox outbox =
           TransactionOutbox.builder()
               .transactionManager(transactionManager)
               .listener(new LatchListener(latch))
-              .persistor(Persistor.forDialect(connectionDetails().dialect()))
+              .persistor(persistor())
               .build();
 
       clearOutbox();
@@ -482,7 +488,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
     TransactionOutbox outbox =
         TransactionOutbox.builder()
             .transactionManager(transactionManager)
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .instantiator(new FailingInstantiator(attempts))
             .submitter(Submitter.withExecutor(singleThreadPool))
             .attemptFrequency(Duration.ofMillis(500))
@@ -521,7 +527,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
                                     "Entered the method to process successfully. Processing ({}, {})",
                                     foo,
                                     bar)))
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .submitter(Submitter.withExecutor(unreliablePool))
             .attemptFrequency(Duration.ofMillis(500))
             .listener(new LatchListener(latch))
@@ -554,7 +560,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
     TransactionOutbox outbox =
         TransactionOutbox.builder()
             .transactionManager(transactionManager)
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .instantiator(new FailingInstantiator(attempts))
             .submitter(Submitter.withExecutor(singleThreadPool))
             .attemptFrequency(Duration.ofMillis(500))
@@ -609,7 +615,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
     TransactionOutbox outbox =
         TransactionOutbox.builder()
             .transactionManager(transactionManager)
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .instantiator(new FailingInstantiator(attempts))
             .submitter(Submitter.withExecutor(singleThreadPool))
             .attemptFrequency(Duration.ofMillis(500))
@@ -647,7 +653,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
     TransactionOutbox outbox =
         TransactionOutbox.builder()
             .transactionManager(transactionManager)
-            .persistor(Persistor.forDialect(connectionDetails().dialect()))
+            .persistor(persistor())
             .instantiator(new RandomFailingInstantiator())
             .submitter(Submitter.withExecutor(unreliablePool))
             .attemptFrequency(Duration.ofMillis(500))

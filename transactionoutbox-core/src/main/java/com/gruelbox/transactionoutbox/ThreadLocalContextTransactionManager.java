@@ -52,6 +52,18 @@ public interface ThreadLocalContextTransactionManager extends TransactionManager
       throws E, NoTransactionActiveException;
 
   /**
+   * Runs the specified work in the context of the "current" transaction (the definition of which is
+   * up to the implementation). If no "current" transaction is active, it starts new transaction, calls the code
+   * and then either commit on success or rollback on failure, flushing and closing any prepared statements
+   * prior to a commit and firing post commit hooks immediately afterwards.
+   *
+   * @param <T> The type returned.
+   * @param supplier Code which must be called while the transaction is active.
+   * @return The result of {@code supplier}.
+   */
+  <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier);
+
+  /**
    * Obtains the active transaction by using {@link
    * #requireTransactionReturns(ThrowingTransactionalSupplier)}, thus requiring nothing to be passed
    * in the method invocation. No changes are made to the invocation.

@@ -1,5 +1,6 @@
 package com.gruelbox.transactionoutbox;
 
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.Executor;
@@ -410,5 +411,30 @@ public interface TransactionOutbox {
      * @return The proxy of {@code T}.
      */
     <T> T schedule(Class<T> clazz);
+
+
+
+    /**
+     * Directly schedule method call with args. Current transaction requires to be active, otherwise exception will be thrown
+     *
+     * @param method Method to call
+     * @param args Arguments of the method
+     */
+    default void persistInvocationAndAddPostCommitHook(Method method, Object[] args) {
+      persistInvocationAndAddPostCommitHook(method, args, true);
+    }
+
+    /**
+     * Directly schedule method call with args.
+     *
+     * @param method Method to call
+     * @param args Arguments of the method
+     * @param requireTransaction {@code true} - Throw exception if no current transaction, {@code false} - use current transaction,
+     *                           but if there is no active transaction, start new one to persist invocation.
+     *                           This might be useful when you don't care much about atomicity and just want to use
+     *                           retriable method invocation mechanism, which survives app restart.
+     */
+    void persistInvocationAndAddPostCommitHook(Method method, Object[] args, boolean requireTransaction);
+
   }
 }

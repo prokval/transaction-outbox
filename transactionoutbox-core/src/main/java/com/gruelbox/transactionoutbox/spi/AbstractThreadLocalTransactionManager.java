@@ -44,6 +44,11 @@ public abstract class AbstractThreadLocalTransactionManager<TX extends SimpleTra
     return work.doWork(peekTransaction().orElseThrow(NoTransactionActiveException::new));
   }
 
+  @Override
+  public <T> T inCurrentOrNewTransaction(TransactionalSupplier<T> supplier) {
+    return peekTransaction().map(supplier::doWork).orElseGet(() -> inTransactionReturns(supplier));
+  }
+
   public final TX pushTransaction(TX transaction) {
     transactions.get().push(transaction);
     return transaction;

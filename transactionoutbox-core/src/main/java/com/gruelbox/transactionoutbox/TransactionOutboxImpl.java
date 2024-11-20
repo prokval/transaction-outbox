@@ -1,13 +1,15 @@
 package com.gruelbox.transactionoutbox;
 
-import static com.gruelbox.transactionoutbox.spi.Utils.logAtLevel;
-import static com.gruelbox.transactionoutbox.spi.Utils.uncheckedly;
-import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.time.temporal.ChronoUnit.MINUTES;
-
 import com.gruelbox.transactionoutbox.spi.ProxyFactory;
 import com.gruelbox.transactionoutbox.spi.Utils;
+import lombok.*;
+import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.slf4j.event.Level;
+
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -15,27 +17,21 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.experimental.Accessors;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
-import org.slf4j.event.Level;
+
+import static com.gruelbox.transactionoutbox.spi.Utils.logAtLevel;
+import static com.gruelbox.transactionoutbox.spi.Utils.uncheckedly;
+import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.time.temporal.ChronoUnit.MINUTES;
 
 @Slf4j
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
 
+  @Getter
   private final TransactionManager transactionManager;
   private final Persistor persistor;
   private final Instantiator instantiator;
@@ -229,26 +225,28 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
     }
     return proxyFactory.createProxy(
         clazz,
-        (method, args) ->
-            uncheckedly(
-                () -> {
-                  var extracted = transactionManager.extractTransaction(method, args);
-                  TransactionOutboxEntry entry =
-                      newEntry(
+        (method, args) ->  persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, topic, delayForAtLeast));
+  }
+
+  private  <T> T persistInvocationAndAddPostCommitHook(Method method, Object[] args, String uniqueRequestId, String topic, Duration delayForAtLeast) {
+    return uncheckedly(() -> {
+          var extracted = transactionManager.extractTransaction(method, args);
+          TransactionOutboxEntry entry =
+                  newEntry(
                           extracted.getClazz(),
                           extracted.getMethodName(),
                           extracted.getParameters(),
                           extracted.getArgs(),
                           uniqueRequestId,
                           topic);
-                  if (delayForAtLeast != null) {
-                    entry.setNextAttemptTime(entry.getNextAttemptTime().plus(delayForAtLeast));
-                  }
-                  validator.validate(entry);
-                  persistor.save(extracted.getTransaction(), entry);
-                  extracted
-                      .getTransaction()
-                      .addPostCommitHook(
+          if (delayForAtLeast != null) {
+            entry.setNextAttemptTime(entry.getNextAttemptTime().plus(delayForAtLeast));
+          }
+          validator.validate(entry);
+          persistor.save(extracted.getTransaction(), entry);
+          extracted
+                  .getTransaction()
+                  .addPostCommitHook(
                           () -> {
                             listener.scheduled(entry);
                             if (entry.getTopic() != null) {
@@ -256,25 +254,25 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
                             } else if (delayForAtLeast == null) {
                               submitNow(entry);
                               log.debug(
-                                  "Scheduled {} for post-commit execution", entry.description());
+                                      "Scheduled {} for post-commit execution", entry.description());
                             } else if (delayForAtLeast.compareTo(attemptFrequency) < 0) {
                               scheduler.schedule(
-                                  () -> submitNow(entry),
-                                  delayForAtLeast.toMillis(),
-                                  TimeUnit.MILLISECONDS);
+                                      () -> submitNow(entry),
+                                      delayForAtLeast.toMillis(),
+                                      TimeUnit.MILLISECONDS);
                               log.info(
-                                  "Scheduled {} for post-commit execution after at least {}",
-                                  entry.description(),
-                                  delayForAtLeast);
+                                      "Scheduled {} for post-commit execution after at least {}",
+                                      entry.description(),
+                                      delayForAtLeast);
                             } else {
                               log.info(
-                                  "Queued {} for execution after at least {}",
-                                  entry.description(),
-                                  delayForAtLeast);
+                                      "Queued {} for execution after at least {}",
+                                      entry.description(),
+                                      delayForAtLeast);
                             }
                           });
-                  return null;
-                }));
+          return null;
+    });
   }
 
   private void submitNow(TransactionOutboxEntry entry) {
@@ -458,6 +456,16 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
         throw new IllegalArgumentException("uniqueRequestId may be up to 250 characters");
       }
       return TransactionOutboxImpl.this.schedule(clazz, uniqueRequestId, ordered, delayForAtLeast);
+    }
+
+    @Override
+    public void persistInvocationAndAddPostCommitHook(Method method, Object[] args, boolean requireTransaction) {
+      if (requireTransaction || !(transactionManager instanceof ThreadLocalContextTransactionManager)) {
+        TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, delayForAtLeast);
+      } else {
+        ((ThreadLocalContextTransactionManager) transactionManager).inCurrentOrNewTransaction(t ->
+                TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, delayForAtLeast));
+      }
     }
   }
 }
