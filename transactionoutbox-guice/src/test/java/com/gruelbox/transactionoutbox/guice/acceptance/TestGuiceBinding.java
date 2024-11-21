@@ -99,7 +99,7 @@ class TestGuiceBinding {
           .listener(
               new TransactionOutboxListener() {
                 @Override
-                public void success(TransactionOutboxEntry entry) {
+                public void success(TransactionOutboxEntry entry, Object result) {
                   processedWithRemote.set(true);
                 }
               })

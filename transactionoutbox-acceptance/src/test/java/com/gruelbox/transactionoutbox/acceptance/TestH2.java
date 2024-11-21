@@ -101,13 +101,13 @@ class TestH2 extends AbstractAcceptanceTest {
                     .andThen(
                         new TransactionOutboxListener() {
                           @Override
-                          public void wrapInvocation(Invocator invocator)
+                          public Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
                               throws IllegalAccessException,
                                   IllegalArgumentException,
                                   InvocationTargetException {
                             inWrappedInvocation.set(true);
                             try {
-                              invocator.run();
+                              return invocator.invoke();
                             } finally {
                               inWrappedInvocation.remove();
                             }
@@ -146,13 +146,13 @@ class TestH2 extends AbstractAcceptanceTest {
                     .andThen(
                         new TransactionOutboxListener() {
                           @Override
-                          public void wrapInvocation(Invocator invocator)
+                          public Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
                               throws IllegalAccessException,
                                   IllegalArgumentException,
                                   InvocationTargetException {
                             MDC.put("BAR", "true");
                             try {
-                              invocator.run();
+                              return invocator.invoke();
                             } finally {
                               MDC.remove("BAR");
                             }

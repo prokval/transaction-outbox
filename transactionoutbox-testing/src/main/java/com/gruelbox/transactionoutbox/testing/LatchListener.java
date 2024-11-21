@@ -22,7 +22,7 @@ public final class LatchListener implements TransactionOutboxListener {
   }
 
   @Override
-  public void success(TransactionOutboxEntry entry) {
+  public void success(TransactionOutboxEntry entry, Object result) {
     successLatch.countDown();
   }
 

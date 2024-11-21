@@ -13,8 +13,8 @@ public interface TransactionOutboxListener {
    * <p>This event is not guaranteed to fire in the event of a JVM failure or power loss. It is
    * fired <em>after</em> the commit to the database adding the scheduled task but before the task
    * is submitted for processing. It will, except in extreme circumstances (although this is not
-   * guaranteed), fire prior to any subsequent {@link #success(TransactionOutboxEntry)} or {@link
-   * #failure(TransactionOutboxEntry, Throwable)}.
+   * guaranteed), fire prior to any subsequent {@link #success(TransactionOutboxEntry, Object)} or
+   * {@link #failure(TransactionOutboxEntry, Throwable)}.
    *
    * @param entry The outbox entry scheduled.
    */
@@ -27,18 +27,20 @@ public interface TransactionOutboxListener {
    * call {@code invocation.run()} which actually calls the underlying method, unless you are
    * deliberately trying to suppress the method call.
    *
+   * @param entry The outbox entry scheduled being invoked.
    * @param invocator A runnable which performs the work of the scheduled task.
    * @throws IllegalAccessException If thrown by the method invocation.
    * @throws IllegalArgumentException If thrown by the method invocation.
    * @throws InvocationTargetException If thrown by the method invocation.
    */
-  default void wrapInvocation(Invocator invocator)
+  default Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
       throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-    invocator.run();
+    return invocator.invoke();
   }
 
+  @FunctionalInterface
   interface Invocator {
-    void run() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
+    Object invoke() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
   }
 
   /**
@@ -54,8 +56,9 @@ public interface TransactionOutboxListener {
    * </ul>
    *
    * @param entry The outbox entry completed.
+   * @param result The result returned from the invocation
    */
-  default void success(TransactionOutboxEntry entry) {
+  default void success(TransactionOutboxEntry entry, Object result) {
     // No-op
   }
 
@@ -102,15 +105,15 @@ public interface TransactionOutboxListener {
       }
 
       @Override
-      public void wrapInvocation(Invocator invocator)
+      public Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
           throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
-        self.wrapInvocation(() -> other.wrapInvocation(invocator));
+        return self.wrapInvocation(entry, () -> other.wrapInvocation(entry, invocator));
       }
 
       @Override
-      public void success(TransactionOutboxEntry entry) {
-        self.success(entry);
-        other.success(entry);
+      public void success(TransactionOutboxEntry entry, Object result) {
+        self.success(entry, result);
+        other.success(entry, result);
       }
 
       @Override

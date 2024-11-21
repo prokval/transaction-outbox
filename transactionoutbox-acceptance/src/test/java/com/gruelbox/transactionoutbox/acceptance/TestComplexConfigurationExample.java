@@ -100,7 +100,7 @@ class TestComplexConfigurationExample {
                 new TransactionOutboxListener() {
 
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     eventPublisher.publish(new OutboxTaskProcessedEvent(entry.getId()));
                   }
 

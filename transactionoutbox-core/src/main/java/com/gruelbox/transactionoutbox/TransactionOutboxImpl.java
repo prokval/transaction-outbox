@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import lombok.*;
@@ -298,6 +299,7 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
   public void processNow(TransactionOutboxEntry entry) {
     initialize();
     Boolean success = null;
+    AtomicReference<Object> result = new AtomicReference<>();
     try {
       success =
           transactionManager.inTransactionReturnsThrows(
@@ -310,7 +312,7 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
                     .withinMDC(
                         () -> {
                           log.info("Processing {}", entry.description());
-                          invoke(entry, tx);
+                          result.set(invoke(entry, tx));
                           if (entry.getUniqueRequestId() == null) {
                             persistor.delete(tx, entry);
                           } else {
@@ -335,20 +337,20 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
     if (success != null) {
       if (success) {
         log.info("Processed {}", entry.description());
-        listener.success(entry);
+        listener.success(entry, result.get());
       } else {
         log.debug("Skipped task {} - may be locked or already processed", entry.getId());
       }
     }
   }
 
-  private void invoke(TransactionOutboxEntry entry, Transaction transaction)
+  private Object invoke(TransactionOutboxEntry entry, Transaction transaction)
       throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
     Object instance = instantiator.getInstance(entry.getInvocation().getClassName());
     log.debug("Created instance {}", instance);
-    transactionManager
+    return transactionManager
         .injectTransaction(entry.getInvocation(), transaction)
-        .invoke(instance, listener);
+        .invoke(entry, instance, listener);
   }
 
   private TransactionOutboxEntry newEntry(

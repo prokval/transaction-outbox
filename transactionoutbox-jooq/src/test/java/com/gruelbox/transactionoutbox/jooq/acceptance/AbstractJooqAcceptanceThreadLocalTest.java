@@ -64,7 +64,7 @@ abstract class AbstractJooqAcceptanceThreadLocalTest extends AbstractJooqAccepta
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {
@@ -121,7 +121,7 @@ abstract class AbstractJooqAcceptanceThreadLocalTest extends AbstractJooqAccepta
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {
@@ -179,7 +179,7 @@ abstract class AbstractJooqAcceptanceThreadLocalTest extends AbstractJooqAccepta
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {

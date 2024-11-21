@@ -54,7 +54,7 @@ class TestJacksonSerializer extends AbstractAcceptanceTest {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     latch.countDown();
                   }
                 })

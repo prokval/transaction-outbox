@@ -70,7 +70,7 @@ class TestJooqTransactionManagerWithDefaultProviderAndExplicitlyPassedContext {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     latch.countDown();
                   }
                 })
@@ -105,7 +105,7 @@ class TestJooqTransactionManagerWithDefaultProviderAndExplicitlyPassedContext {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     latch.countDown();
                   }
                 })
@@ -142,7 +142,7 @@ class TestJooqTransactionManagerWithDefaultProviderAndExplicitlyPassedContext {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {
@@ -193,7 +193,7 @@ class TestJooqTransactionManagerWithDefaultProviderAndExplicitlyPassedContext {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {
@@ -251,7 +251,7 @@ class TestJooqTransactionManagerWithDefaultProviderAndExplicitlyPassedContext {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     if (entry.getInvocation().getArgs()[0].equals(1)) {
                       latch1.countDown();
                     } else {

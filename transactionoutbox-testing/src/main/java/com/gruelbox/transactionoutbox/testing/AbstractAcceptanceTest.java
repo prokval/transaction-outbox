@@ -193,7 +193,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
                           }
 
                           @Override
-                          public void success(TransactionOutboxEntry entry) {
+                          public void success(TransactionOutboxEntry entry, Object result) {
                             chainedLatch.countDown();
                           }
                         }))
@@ -262,7 +262,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     ids.add((String) entry.getInvocation().getArgs()[0]);
                   }
                 })
@@ -661,7 +661,7 @@ public abstract class AbstractAcceptanceTest extends BaseTest {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     Integer i = (Integer) entry.getInvocation().getArgs()[0];
                     if (results.putIfAbsent(i, i) != null) {
                       duplicates.put(i, i);
