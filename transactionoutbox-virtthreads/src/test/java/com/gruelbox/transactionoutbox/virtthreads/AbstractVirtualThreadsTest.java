@@ -49,7 +49,7 @@ abstract class AbstractVirtualThreadsTest extends BaseTest {
             .listener(
                 new TransactionOutboxListener() {
                   @Override
-                  public void success(TransactionOutboxEntry entry) {
+                  public void success(TransactionOutboxEntry entry, Object result) {
                     Integer i = (Integer) entry.getInvocation().getArgs()[0];
                     if (results.putIfAbsent(i, i) != null) {
                       duplicates.put(i, i);
