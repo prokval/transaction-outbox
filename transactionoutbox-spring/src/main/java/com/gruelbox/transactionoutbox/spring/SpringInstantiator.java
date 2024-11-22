@@ -1,10 +1,11 @@
 package com.gruelbox.transactionoutbox.spring;
 
 import com.gruelbox.transactionoutbox.Instantiator;
-import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
+
+import java.util.Arrays;
 
 /**
  * Instantiator that uses the spring {@link ApplicationContext} to source objects. It requires that
@@ -41,6 +42,11 @@ public class SpringInstantiator implements Instantiator {
 
   @Override
   public Object getInstance(String name) {
-    return applicationContext.getBean(name);
+    Object bean = applicationContext.getBean(name);
+
+    if (bean instanceof TransactionalOutboxProxy toProxy) {
+      bean = toProxy.getTransactionalOutboxProxyTarget();
+    }
+    return bean;
   }
 }

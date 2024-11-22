@@ -1,14 +1,16 @@
-package com.gruelbox.transactionoutbox.spring.example;
+package com.gruelbox.transactionoutbox.spring;
+
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 
-@Configuration
-@ConfigurationProperties("outbox")
 @Data
-class TransactionOutboxProperties {
+@ConfigurationProperties("outbox")
+@Setter(AccessLevel.PACKAGE)
+public class TransactionOutboxProperties {
   private Duration repeatEvery;
   private boolean useJackson;
   private Duration attemptFrequency;

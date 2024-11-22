@@ -1,4 +1,4 @@
-package com.gruelbox.transactionoutbox.spring.example;
+package com.gruelbox.transactionoutbox.spring;
 
 import com.gruelbox.transactionoutbox.TransactionOutbox;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 @RequiredArgsConstructor(onConstructor_ = {@Autowired})
-class TransactionOutboxBackgroundProcessor {
+public class TransactionOutboxBackgroundProcessor {
 
   private final TransactionOutbox outbox;
 
