@@ -1,10 +1,7 @@
 package com.gruelbox.transactionoutbox.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gruelbox.transactionoutbox.Persistor;
-import com.gruelbox.transactionoutbox.PgSeqDialect;
-import com.gruelbox.transactionoutbox.PgSeqPersistor;
-import com.gruelbox.transactionoutbox.TransactionOutbox;
+import com.gruelbox.transactionoutbox.*;
 import com.gruelbox.transactionoutbox.jackson.JacksonInvocationSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -32,14 +29,20 @@ public class TransactionalOutboxConfiguration {
 
     @Bean
     public Persistor persistor() {
-        if (properties.isUseJackson()) {
+
+        InvocationSerializer serializer = properties.isUseJackson() ?
+                JacksonInvocationSerializer.builder().mapper(objectMapper).build() :
+                InvocationSerializer.createDefaultJsonSerializer();
+
+        if (properties.getSqlDialect() == TransactionOutboxProperties.OutboxSqlDialect.POSTGRESQL_SEQ) {
             return PgSeqPersistor.builder()
-                    .serializer(JacksonInvocationSerializer.builder().mapper(objectMapper).build())
-                    .dialect(PgSeqDialect.POSTGRESQL_SEQ)
+                    .serializer(serializer)
+                    .dialect(properties.getSqlDialect().getDialect())
                     .build();
         } else {
-            return PgSeqPersistor.builder()
-                    .dialect(PgSeqDialect.POSTGRESQL_SEQ)
+            return DefaultPersistor.builder()
+                    .serializer(serializer)
+                    .dialect(properties.getSqlDialect().getDialect())
                     .build();
         }
     }
