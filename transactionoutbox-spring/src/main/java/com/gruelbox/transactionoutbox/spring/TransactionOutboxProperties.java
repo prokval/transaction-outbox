@@ -4,27 +4,21 @@ import com.gruelbox.transactionoutbox.Dialect;
 import com.gruelbox.transactionoutbox.PgSeqDialect;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import java.time.Duration;
 import lombok.*;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
-
-import java.time.Duration;
 
 @Data
 @ConfigurationProperties("outbox")
 @Setter(AccessLevel.PACKAGE)
 @Validated
 public class TransactionOutboxProperties {
-  @NotNull
-  private Duration repeatEvery;
+  @NotNull private Duration repeatEvery;
   private boolean useJackson = true;
-  @NotNull
-  private Duration attemptFrequency;
-  @Positive
-  private int blockAfterAttempts;
-  @NotNull
-  private OutboxSqlDialect sqlDialect = OutboxSqlDialect.H2;
-
+  @NotNull private Duration attemptFrequency;
+  @Positive private int blockAfterAttempts;
+  @NotNull private OutboxSqlDialect sqlDialect = OutboxSqlDialect.H2;
 
   @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
   @Getter

@@ -1,11 +1,5 @@
 package com.gruelbox.transactionoutbox;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.experimental.SuperBuilder;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringWriter;
@@ -15,6 +9,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.experimental.SuperBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @SuperBuilder
@@ -165,7 +164,9 @@ public class PgSeqPersistor implements Persistor, Validatable {
       stmt.setString(pos++, entry.getTopic());
       stmt.setLong(pos++, entry.getSequence());
     }
-    stmt.setTimestamp(pos++, entry.getLastAttemptTime() == null ? null : Timestamp.from(entry.getLastAttemptTime()));
+    stmt.setTimestamp(
+        pos++,
+        entry.getLastAttemptTime() == null ? null : Timestamp.from(entry.getLastAttemptTime()));
     stmt.setTimestamp(pos++, Timestamp.from(entry.getNextAttemptTime()));
     stmt.setInt(pos++, entry.getAttempts());
     stmt.setBoolean(pos++, entry.isBlocked());

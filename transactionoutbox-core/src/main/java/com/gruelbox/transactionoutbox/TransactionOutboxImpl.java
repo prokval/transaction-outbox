@@ -31,8 +31,7 @@ import org.slf4j.event.Level;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
 
-  @Getter
-  private final TransactionManager transactionManager;
+  @Getter private final TransactionManager transactionManager;
   private final Persistor persistor;
   private final Instantiator instantiator;
   private final Submitter submitter;
@@ -244,7 +243,8 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
       String topic,
       boolean orderedTakeLast,
       Duration delayForAtLeast) {
-    return uncheckedly(() -> {
+    return uncheckedly(
+        () -> {
           var extracted = transactionManager.extractTransaction(method, args);
           TransactionOutboxEntry entry =
               newEntry(
@@ -399,7 +399,9 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
   private void updateAttemptCount(TransactionOutboxEntry entry, Throwable cause) {
     try {
       entry.setAttempts(entry.getAttempts() + 1);
-      var blocked = (entry.getTopic() == null || entry.isOrderedTakeLast()) && (entry.getAttempts() >= blockAfterAttempts);
+      var blocked =
+          (entry.getTopic() == null || entry.isOrderedTakeLast())
+              && (entry.getAttempts() >= blockAfterAttempts);
       entry.setBlocked(blocked);
       transactionManager.inTransactionThrows(tx -> pushBack(tx, entry));
       listener.failure(entry, cause);
@@ -481,18 +483,25 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
     @Override
     public <T> T schedule(Class<T> clazz) {
       validate();
-      return TransactionOutboxImpl.this.schedule(clazz, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
+      return TransactionOutboxImpl.this.schedule(
+          clazz, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
     }
 
     @Override
-    public void persistInvocationAndAddPostCommitHook(Method method, Object[] args, boolean requireTransaction) {
+    public void persistInvocationAndAddPostCommitHook(
+        Method method, Object[] args, boolean requireTransaction) {
       validate();
 
-      if (requireTransaction || !(transactionManager instanceof ThreadLocalContextTransactionManager)) {
-        TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
+      if (requireTransaction
+          || !(transactionManager instanceof ThreadLocalContextTransactionManager)) {
+        TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(
+            method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast);
       } else {
-        ((ThreadLocalContextTransactionManager) transactionManager).inCurrentOrNewTransaction(t ->
-                    TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast));
+        ((ThreadLocalContextTransactionManager) transactionManager)
+            .inCurrentOrNewTransaction(
+                t ->
+                    TransactionOutboxImpl.this.persistInvocationAndAddPostCommitHook(
+                        method, args, uniqueRequestId, ordered, orderedTakeLast, delayForAtLeast));
       }
     }
   }

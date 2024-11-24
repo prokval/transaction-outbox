@@ -40,7 +40,8 @@ public interface TransactionOutboxListener {
 
   @FunctionalInterface
   interface Invocator {
-    Object invoke() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
+    Object invoke()
+        throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
   }
 
   /**

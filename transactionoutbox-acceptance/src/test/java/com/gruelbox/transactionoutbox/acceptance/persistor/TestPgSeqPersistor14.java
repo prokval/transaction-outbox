@@ -2,12 +2,11 @@ package com.gruelbox.transactionoutbox.acceptance.persistor;
 
 import com.gruelbox.transactionoutbox.*;
 import com.gruelbox.transactionoutbox.testing.AbstractPersistorTest;
+import java.time.Duration;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.time.Duration;
 
 @Testcontainers
 class TestPgSeqPersistor14 extends AbstractPersistorTest {
@@ -20,8 +19,7 @@ class TestPgSeqPersistor14 extends AbstractPersistorTest {
               .withStartupTimeout(Duration.ofHours(1))
               .withReuse(true);
 
-  private final PgSeqPersistor persistor =
-          PgSeqPersistor.builder().build();
+  private final PgSeqPersistor persistor = PgSeqPersistor.builder().build();
   private final TransactionManager txManager =
       TransactionManager.fromConnectionDetails(
           "org.postgresql.Driver",

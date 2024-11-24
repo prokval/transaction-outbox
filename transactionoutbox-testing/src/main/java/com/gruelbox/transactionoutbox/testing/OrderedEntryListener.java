@@ -58,8 +58,8 @@ public final class OrderedEntryListener implements TransactionOutboxListener {
 
   /**
    * Retrieve an unmodifiable copy of {@link #events}. Beware, expectation is that this does not/
-   * should not get accessed until the correct number of {@link #success(TransactionOutboxEntry, Object)}
-   * and {@link #blocked(TransactionOutboxEntry, Throwable)}} counts have occurred.
+   * should not get accessed until the correct number of {@link #success(TransactionOutboxEntry,
+   * Object)} and {@link #blocked(TransactionOutboxEntry, Throwable)}} counts have occurred.
    *
    * @return unmodifiable list of ordered outbox entry events.
    */

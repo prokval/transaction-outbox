@@ -101,7 +101,8 @@ class TestH2 extends AbstractAcceptanceTest {
                     .andThen(
                         new TransactionOutboxListener() {
                           @Override
-                          public Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
+                          public Object wrapInvocation(
+                              TransactionOutboxEntry entry, Invocator invocator)
                               throws IllegalAccessException,
                                   IllegalArgumentException,
                                   InvocationTargetException {
@@ -146,7 +147,8 @@ class TestH2 extends AbstractAcceptanceTest {
                     .andThen(
                         new TransactionOutboxListener() {
                           @Override
-                          public Object wrapInvocation(TransactionOutboxEntry entry, Invocator invocator)
+                          public Object wrapInvocation(
+                              TransactionOutboxEntry entry, Invocator invocator)
                               throws IllegalAccessException,
                                   IllegalArgumentException,
                                   InvocationTargetException {

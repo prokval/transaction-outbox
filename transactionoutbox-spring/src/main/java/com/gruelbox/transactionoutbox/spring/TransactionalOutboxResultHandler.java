@@ -9,13 +9,15 @@ import java.lang.annotation.*;
  * detected by {@link TransactionalOutboxMethodRegistry} if the following conditions are met:
  *
  * <ul>
- *     <li> {@code @TransactionalOutbox} has {@code requireResultHandler} set to {@code true}
- *     <li> Method names are equal
- *     <li> Handler method has exactly the same parameter types plus return type of original method and {@code Throwable}
- *          type. If the return type of original method is void, then this parameter should be skipped in the handler.
+ *   <li>{@code @TransactionalOutbox} has {@code requireResultHandler} set to {@code true}
+ *   <li>Method names are equal
+ *   <li>Handler method has exactly the same parameter types plus return type of original method and
+ *       {@code Throwable} type. If the return type of original method is void, then this parameter
+ *       should be skipped in the handler.
  * </ul>
  *
  * Here are examples of Result Handler methods:
+ *
  * <pre>
  *  &#064;Service
  *  ExternalQueueService {
@@ -40,15 +42,12 @@ import java.lang.annotation.*;
  *
  *     &#064;TransactionalOutboxResultHandler
  *     public void updateCustomerStatus(Customer customer, String status, Throwable error) { ... }
-
+ *
  *  }
  * </pre>
- *
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 @Inherited
 @Documented
-public @interface TransactionalOutboxResultHandler {
-
-}
+public @interface TransactionalOutboxResultHandler {}

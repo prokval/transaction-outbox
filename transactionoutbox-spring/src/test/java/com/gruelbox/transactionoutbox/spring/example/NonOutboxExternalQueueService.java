@@ -20,8 +20,5 @@ class NonOutboxExternalQueueService implements IExternalQueueService {
   }
 
   @Override
-  public void updateCustomerStatus(Customer customer, String status) {
-
-  }
-
+  public void updateCustomerStatus(Customer customer, String status) {}
 }

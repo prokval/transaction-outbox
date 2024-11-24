@@ -4,12 +4,11 @@ import com.gruelbox.transactionoutbox.Persistor;
 import com.gruelbox.transactionoutbox.PgSeqDialect;
 import com.gruelbox.transactionoutbox.PgSeqPersistor;
 import com.gruelbox.transactionoutbox.testing.AbstractAcceptanceTest;
+import java.time.Duration;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import java.time.Duration;
 
 @SuppressWarnings("WeakerAccess")
 @Testcontainers

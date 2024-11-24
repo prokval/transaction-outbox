@@ -1,13 +1,10 @@
 package com.gruelbox.transactionoutbox.spring;
 
-import org.springframework.context.annotation.Import;
-
 import java.lang.annotation.*;
+import org.springframework.context.annotation.Import;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Import(TransactionalOutboxConfiguration.class)
-public @interface EnableTransactionalOutbox {
-
-}
+public @interface EnableTransactionalOutbox {}

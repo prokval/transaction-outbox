@@ -7,5 +7,4 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @SpringBootApplication
 @EnableTransactionalOutbox
 @EnableTransactionManagement
-public class SpringTestsConfiguration {
-}
+public class SpringTestsConfiguration {}

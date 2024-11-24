@@ -436,10 +436,9 @@ public interface TransactionOutbox {
      */
     <T> T schedule(Class<T> clazz);
 
-
-
     /**
-     * Directly schedule method call with args. Current transaction requires to be active, otherwise exception will be thrown
+     * Directly schedule method call with args. Current transaction requires to be active, otherwise
+     * exception will be thrown
      *
      * @param method Method to call
      * @param args Arguments of the method
@@ -453,12 +452,12 @@ public interface TransactionOutbox {
      *
      * @param method Method to call
      * @param args Arguments of the method
-     * @param requireTransaction {@code true} - Throw exception if no current transaction, {@code false} - use current transaction,
-     *                           but if there is no active transaction, start new one to persist invocation.
-     *                           This might be useful when you don't care much about atomicity and just want to use
-     *                           retriable method invocation mechanism, which survives app restart.
+     * @param requireTransaction {@code true} - Throw exception if no current transaction, {@code
+     *     false} - use current transaction, but if there is no active transaction, start new one to
+     *     persist invocation. This might be useful when you don't care much about atomicity and
+     *     just want to use retriable method invocation mechanism, which survives app restart.
      */
-    void persistInvocationAndAddPostCommitHook(Method method, Object[] args, boolean requireTransaction);
-
+    void persistInvocationAndAddPostCommitHook(
+        Method method, Object[] args, boolean requireTransaction);
   }
 }

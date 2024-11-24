@@ -8,20 +8,19 @@ import org.springframework.aop.SpringProxy;
 
 public interface TransactionalOutboxProxy extends SpringProxy, RawTargetAccess {
 
-    Object getTransactionalOutboxProxyTarget();
+  Object getTransactionalOutboxProxyTarget();
 
-    @RequiredArgsConstructor
-    class GetTargetMethodInterceptor implements MethodInterceptor {
-        private final Object target;
+  @RequiredArgsConstructor
+  class GetTargetMethodInterceptor implements MethodInterceptor {
+    private final Object target;
 
-
-        @Override
-        public Object invoke(MethodInvocation invocation) throws Throwable {
-            if (invocation.getMethod().getName().equals("getTransactionalOutboxProxyTarget")) {
-                return target;
-            } else {
-                return invocation.proceed();
-            }
-        }
+    @Override
+    public Object invoke(MethodInvocation invocation) throws Throwable {
+      if (invocation.getMethod().getName().equals("getTransactionalOutboxProxyTarget")) {
+        return target;
+      } else {
+        return invocation.proceed();
+      }
     }
+  }
 }
