@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
   TransactionOutboxProperties.class,
   SpringInstantiator.class,
   SpringTransactionManager.class,
+  DelegatedTransactionOutbox.class,
   TransactionalOutboxBeanPostProcessor.class,
   TransactionalOutboxResultHandlerBeanPostProcessor.class,
   TransactionalOutboxMethodRegistry.class
@@ -44,22 +45,6 @@ public class TransactionalOutboxConfiguration {
           .dialect(properties.getSqlDialect().getDialect())
           .build();
     }
-  }
-
-  @Bean
-  public TransactionOutbox transactionOutbox(
-      SpringInstantiator instantiator,
-      SpringTransactionManager transactionManager,
-      Persistor persistor,
-      TransactionalOutboxMethodRegistry registry) {
-    return TransactionOutbox.builder()
-        .instantiator(instantiator)
-        .transactionManager(transactionManager)
-        .persistor(persistor)
-        .attemptFrequency(properties.getAttemptFrequency())
-        .blockAfterAttempts(properties.getBlockAfterAttempts())
-        .listener(registry)
-        .build();
   }
 
   @Bean
