@@ -266,10 +266,10 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
                   () -> {
                     listener.scheduled(entry);
                     if (entry.getTopic() != null) {
-                      log.debug("Queued {} in topic {}", entry.description(), topic);
+                      log.info("Queued {} in topic {}", entry.description(), topic);
                     } else if (delayForAtLeast == null) {
                       submitNow(entry);
-                      log.debug("Scheduled {} for post-commit execution", entry.description());
+                      log.info("Scheduled {} for post-commit execution", entry.description());
                     } else if (delayForAtLeast.compareTo(attemptFrequency) < 0) {
                       scheduler.schedule(
                           () -> submitNow(entry),
