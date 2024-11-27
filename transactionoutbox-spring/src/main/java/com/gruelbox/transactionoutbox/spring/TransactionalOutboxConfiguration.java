@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gruelbox.transactionoutbox.*;
 import com.gruelbox.transactionoutbox.jackson.JacksonInvocationSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
+@AutoConfiguration
 @Import({
   TransactionOutboxProperties.class,
   SpringInstantiator.class,
@@ -25,6 +27,11 @@ public class TransactionalOutboxConfiguration {
   @Autowired private ObjectMapper objectMapper;
 
   @Autowired private TransactionOutboxProperties properties;
+
+  @Bean
+  public Submitter submitter() {
+    return new DelegatedSubmitter();
+  }
 
   @Bean
   public Persistor persistor() {

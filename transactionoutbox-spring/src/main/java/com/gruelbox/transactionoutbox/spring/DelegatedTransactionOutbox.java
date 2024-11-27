@@ -1,6 +1,7 @@
 package com.gruelbox.transactionoutbox.spring;
 
 import com.gruelbox.transactionoutbox.Persistor;
+import com.gruelbox.transactionoutbox.Submitter;
 import com.gruelbox.transactionoutbox.TransactionOutbox;
 import com.gruelbox.transactionoutbox.TransactionOutboxEntry;
 import java.util.concurrent.Executor;
@@ -26,6 +27,7 @@ public class DelegatedTransactionOutbox implements TransactionOutbox {
     private final SpringInstantiator instantiator;
     private final SpringTransactionManager transactionManager;
     private final Persistor persistor;
+    private final Submitter submitter;
     private final TransactionalOutboxMethodRegistry registry;
     private final TransactionOutboxProperties properties;
 
@@ -38,6 +40,7 @@ public class DelegatedTransactionOutbox implements TransactionOutbox {
               .instantiator(instantiator)
               .transactionManager(transactionManager)
               .persistor(persistor)
+              .submitter(submitter)
               .attemptFrequency(properties.getAttemptFrequency())
               .blockAfterAttempts(properties.getBlockAfterAttempts())
               .listener(registry)
