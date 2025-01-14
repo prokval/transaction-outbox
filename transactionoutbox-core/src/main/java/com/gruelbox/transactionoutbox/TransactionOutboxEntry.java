@@ -4,8 +4,10 @@ import static java.util.stream.Collectors.joining;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.concurrent.Callable;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.slf4j.MDC;
 
 /**
  * Internal representation of a {@link TransactionOutbox} task. Generally only directly of interest
@@ -168,5 +170,49 @@ public class TransactionOutboxEntry implements Validatable {
     validator.positiveOrZero("attempts", attempts);
     validator.positiveOrZero("version", version);
     validator.isTrue("topic", !"*".equals(topic), "Topic may not be *");
+  }
+
+  void withinMDC(Runnable runnable) {
+    if (invocation != null && invocation.getMdc() != null && MDC.getMDCAdapter() != null) {
+      var oldMdc = MDC.getCopyOfContextMap();
+      fillMDC();
+      try {
+        runnable.run();
+      } finally {
+        if (oldMdc == null) {
+          MDC.clear();
+        } else {
+          MDC.setContextMap(oldMdc);
+        }
+      }
+    } else {
+      runnable.run();
+    }
+  }
+
+  <T> T withinMDC(Callable<T> callable) throws Exception {
+    if (invocation != null && invocation.getMdc() != null && MDC.getMDCAdapter() != null) {
+      var oldMdc = MDC.getCopyOfContextMap();
+      fillMDC();
+      try {
+        return callable.call();
+      } finally {
+        if (oldMdc == null) {
+          MDC.clear();
+        } else {
+          MDC.setContextMap(oldMdc);
+        }
+      }
+    } else {
+      return callable.call();
+    }
+  }
+
+  private void fillMDC() {
+    MDC.setContextMap(invocation.getMdc());
+    MDC.put("outbox.class", invocation.getClassName());
+    MDC.put("outbox.method", invocation.getMethodName());
+    MDC.put("outbox.id", id);
+    MDC.put("outbox.attempt", Integer.toString(attempts));
   }
 }

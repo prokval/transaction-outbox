@@ -5,10 +5,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 
 /**
  * Represents the invocation of a specific method on a named class (where the name is provided by an
@@ -89,42 +87,6 @@ public class Invocation {
     this.parameterTypes = parameterTypes;
     this.args = args;
     this.mdc = mdc;
-  }
-
-  void withinMDC(Runnable runnable) {
-    if (mdc != null && MDC.getMDCAdapter() != null) {
-      var oldMdc = MDC.getCopyOfContextMap();
-      MDC.setContextMap(mdc);
-      try {
-        runnable.run();
-      } finally {
-        if (oldMdc == null) {
-          MDC.clear();
-        } else {
-          MDC.setContextMap(oldMdc);
-        }
-      }
-    } else {
-      runnable.run();
-    }
-  }
-
-  <T> T withinMDC(Callable<T> callable) throws Exception {
-    if (mdc != null && MDC.getMDCAdapter() != null) {
-      var oldMdc = MDC.getCopyOfContextMap();
-      MDC.setContextMap(mdc);
-      try {
-        return callable.call();
-      } finally {
-        if (oldMdc == null) {
-          MDC.clear();
-        } else {
-          MDC.setContextMap(oldMdc);
-        }
-      }
-    } else {
-      return callable.call();
-    }
   }
 
   Object invoke(TransactionOutboxEntry entry, Object instance, TransactionOutboxListener listener)

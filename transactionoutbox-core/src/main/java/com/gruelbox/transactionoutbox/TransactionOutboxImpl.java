@@ -307,26 +307,24 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
                 if (!persistor.lock(tx, entry)) {
                   return false;
                 }
-                entry
-                    .getInvocation()
-                    .withinMDC(
-                        () -> {
-                          log.info("Processing {}", entry.description());
-                          result.set(invoke(entry, tx));
-                          if (entry.getUniqueRequestId() == null) {
-                            persistor.delete(tx, entry);
-                          } else {
-                            log.debug(
-                                "Deferring deletion of {} by {}",
-                                entry.description(),
-                                retentionThreshold);
-                            entry.setProcessed(true);
-                            entry.setLastAttemptTime(Instant.now(clockProvider.get()));
-                            entry.setNextAttemptTime(after(retentionThreshold));
-                            persistor.update(tx, entry);
-                          }
-                          return true;
-                        });
+                entry.withinMDC(
+                    () -> {
+                      log.info("Processing {}", entry.description());
+                      result.set(invoke(entry, tx));
+                      if (entry.getUniqueRequestId() == null) {
+                        persistor.delete(tx, entry);
+                      } else {
+                        log.debug(
+                            "Deferring deletion of {} by {}",
+                            entry.description(),
+                            retentionThreshold);
+                        entry.setProcessed(true);
+                        entry.setLastAttemptTime(Instant.now(clockProvider.get()));
+                        entry.setNextAttemptTime(after(retentionThreshold));
+                        persistor.update(tx, entry);
+                      }
+                      return true;
+                    });
                 return true;
               });
     } catch (InvocationTargetException e) {
@@ -335,12 +333,16 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
       updateAttemptCount(entry, e);
     }
     if (success != null) {
-      if (success) {
-        log.info("Processed {}", entry.description());
-        listener.success(entry, result.get());
-      } else {
-        log.debug("Skipped task {} - may be locked or already processed", entry.getId());
-      }
+      boolean finalSuccess = success;
+      entry.withinMDC(
+          () -> {
+            if (finalSuccess) {
+              log.info("Processed {}", entry.description());
+              listener.success(entry, result.get());
+            } else {
+              log.debug("Skipped task {} - may be locked or already processed", entry.getId());
+            }
+          });
     }
   }
 
@@ -397,37 +399,40 @@ final class TransactionOutboxImpl implements TransactionOutbox, Validatable {
   }
 
   private void updateAttemptCount(TransactionOutboxEntry entry, Throwable cause) {
-    try {
-      entry.setAttempts(entry.getAttempts() + 1);
-      var blocked =
-          (entry.getTopic() == null || entry.isOrderedTakeLast())
-              && (entry.getAttempts() >= blockAfterAttempts);
-      entry.setBlocked(blocked);
-      transactionManager.inTransactionThrows(tx -> pushBack(tx, entry));
-      listener.failure(entry, cause);
-      if (blocked) {
-        log.error(
-            "Blocking failing entry {} after {} attempts: {}",
-            entry.getId(),
-            entry.getAttempts(),
-            entry.description(),
-            cause);
-        listener.blocked(entry, cause);
-      } else {
-        logAtLevel(
-            log,
-            logLevelTemporaryFailure,
-            "Temporarily failed to process entry {} : {}",
-            entry.getId(),
-            entry.description(),
-            cause);
-      }
-    } catch (Exception e) {
-      log.error(
-          "Failed to update attempt count for {}. It may be retried more times than expected.",
-          entry.description(),
-          e);
-    }
+    entry.withinMDC(
+        () -> {
+          try {
+            entry.setAttempts(entry.getAttempts() + 1);
+            var blocked =
+                (entry.getTopic() == null || entry.isOrderedTakeLast())
+                    && (entry.getAttempts() >= blockAfterAttempts);
+            entry.setBlocked(blocked);
+            transactionManager.inTransactionThrows(tx -> pushBack(tx, entry));
+            listener.failure(entry, cause);
+            if (blocked) {
+              log.error(
+                  "Blocking failing entry {} after {} attempts: {}",
+                  entry.getId(),
+                  entry.getAttempts(),
+                  entry.description(),
+                  cause);
+              listener.blocked(entry, cause);
+            } else {
+              logAtLevel(
+                  log,
+                  logLevelTemporaryFailure,
+                  "Temporarily failed to process entry {} : {}",
+                  entry.getId(),
+                  entry.description(),
+                  cause);
+            }
+          } catch (Exception e) {
+            log.error(
+                "Failed to update attempt count for {}. It may be retried more times than expected.",
+                entry.description(),
+                e);
+          }
+        });
   }
 
   @ToString
