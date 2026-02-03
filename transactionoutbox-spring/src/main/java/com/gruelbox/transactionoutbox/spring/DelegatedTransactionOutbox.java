@@ -6,6 +6,7 @@ import com.gruelbox.transactionoutbox.TransactionOutbox;
 import com.gruelbox.transactionoutbox.TransactionOutboxEntry;
 import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ public class DelegatedTransactionOutbox implements TransactionOutbox {
    */
   @RequiredArgsConstructor
   @Component
-  static class DelegatedTransactionOutboxInitializer implements InitializingBean {
+  static class DelegatedTransactionOutboxInitializer implements InitializingBean, DisposableBean {
     private final SpringInstantiator instantiator;
     private final SpringTransactionManager transactionManager;
     private final Persistor persistor;
@@ -45,6 +46,18 @@ public class DelegatedTransactionOutbox implements TransactionOutbox {
               .blockAfterAttempts(properties.getBlockAfterAttempts())
               .listener(registry)
               .build();
+    }
+
+    /**
+     * Free up resources when destroy the context.
+     * <p>
+     * Setting delegate to null will break GC path from Root to SessionFactory and thus allows SessionFactory
+     * to be collected by GC. This is important when the context is short-lived. E.g. running large set
+     * of integration tests which create and destroy application contexts.
+     */
+    @Override
+    public void destroy() throws Exception {
+      delegatedTransactionOutbox.delegate = null;
     }
   }
 
